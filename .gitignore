@@ -15,7 +15,7 @@ ENV/
 # Secrets and local configuration
 .env
 .env.*
-!.env.example
+.env.example
 
 # Node / frontend
 node_modules/
