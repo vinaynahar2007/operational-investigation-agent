@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.investigator import investigate
 from app.llm.adapter import LLMAdapter
-from app.tools.dataset import load_machines
+from app.tools.dataset import load_machines, normalize_machine_id
 
 app = FastAPI(
     title="Operational Investigation Agent",
@@ -87,7 +87,7 @@ def run_investigation(request: InvestigateRequest) -> dict:
     machine onto a 404 so a client sees a clear error instead of a 200 with a
     failed body.
     """
-    machine_id = request.machine_id.strip()
+    machine_id = normalize_machine_id(request.machine_id)
     result = investigate(machine_id)
 
     if not _machine_known(machine_id):
@@ -105,7 +105,7 @@ def run_investigation(request: InvestigateRequest) -> dict:
 
 def _machine_known(machine_id: str) -> bool:
     """Whether the machine id exists in the dataset."""
-    return machine_id in set(load_machines()["machine_id"])
+    return normalize_machine_id(machine_id) in set(load_machines()["machine_id"])
 
 
 if __name__ == "__main__":

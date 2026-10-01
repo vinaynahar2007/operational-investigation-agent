@@ -54,6 +54,13 @@ def test_investigate_m04_returns_a_complete_result(client):
     assert [entry["step"] for entry in result["trace"]]
 
 
+def test_investigate_accepts_trimmed_case_insensitive_machine_ids(client):
+    for raw in ["M04", " m04 ", "m04"]:
+        response = client.post("/api/investigate", json={"machine_id": raw})
+        assert response.status_code == 200
+        assert response.json()["machine_id"] == "M04"
+
+
 def test_investigate_unknown_machine_returns_404(client):
     response = client.post("/api/investigate", json={"machine_id": "ZZZ"})
     assert response.status_code == 404

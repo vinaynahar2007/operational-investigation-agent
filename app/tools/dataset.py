@@ -79,6 +79,23 @@ def data_dir() -> Path:
     return DATA_DIR
 
 
+def normalize_machine_id(machine_id) -> str:
+    """Canonical machine identifier used throughout the investigation code."""
+    if machine_id is None:
+        return ""
+    return str(machine_id).strip().upper()
+
+
+def _normalize_machine_id_column(frame: pd.DataFrame) -> pd.DataFrame:
+    if "machine_id" not in frame.columns:
+        return frame
+    normalized = frame.copy()
+    normalized["machine_id"] = normalized["machine_id"].map(
+        lambda value: normalize_machine_id(value) if pd.notna(value) else value
+    )
+    return normalized
+
+
 def _parse_dates(frame: pd.DataFrame, columns) -> pd.DataFrame:
     """Parse date columns explicitly as ``%Y-%m-%d``.
 
@@ -100,12 +117,12 @@ def _read_csv(filename: str, date_columns=()) -> pd.DataFrame:
 
 def load_machines() -> pd.DataFrame:
     """Machine metadata: identity, category, rated_kw, baseline runtime."""
-    return _read_csv("machines.csv")
+    return _normalize_machine_id_column(_read_csv("machines.csv"))
 
 
 def load_energy() -> pd.DataFrame:
     """Daily per-machine runtime, energy and efficiency factor."""
-    return _read_csv("energy.csv", date_columns=("date",))
+    return _normalize_machine_id_column(_read_csv("energy.csv", date_columns=("date",)))
 
 
 def load_production() -> pd.DataFrame:
@@ -115,17 +132,17 @@ def load_production() -> pd.DataFrame:
 
 def load_maintenance() -> pd.DataFrame:
     """Maintenance history and status."""
-    return _read_csv("maintenance.csv", date_columns=("date",))
+    return _normalize_machine_id_column(_read_csv("maintenance.csv", date_columns=("date",)))
 
 
 def load_incidents() -> pd.DataFrame:
     """Verified historical incidents with their interventions."""
-    return _read_csv("incidents.csv", date_columns=("date",))
+    return _normalize_machine_id_column(_read_csv("incidents.csv", date_columns=("date",)))
 
 
 def load_technician_notes() -> pd.DataFrame:
     """Human operational observations and recommended follow-ups."""
-    return _read_csv("technician_notes.csv", date_columns=("date",))
+    return _normalize_machine_id_column(_read_csv("technician_notes.csv", date_columns=("date",)))
 
 
 def load_scenarios() -> list:

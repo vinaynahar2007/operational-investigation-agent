@@ -24,6 +24,7 @@ against a threshold declared in this file.
 from __future__ import annotations
 
 from app.tools.anomalies import detect_anomalies_for_machine
+from app.tools.dataset import normalize_machine_id
 from app.llm.adapter import (
     LLMError,
     build_evidence_contract,
@@ -114,8 +115,10 @@ class Investigation:
         adapter=None,
         memory_db=None,
     ):
-        self.machine_id = machine_id
-        self.question = question or "Why did {0} behave abnormally?".format(machine_id)
+        self.machine_id = normalize_machine_id(machine_id)
+        self.question = question or "Why did {0} behave abnormally?".format(
+            self.machine_id
+        )
         # Optional reasoning layer. None or unavailable means deterministic only.
         self.adapter = adapter
         # None uses the configured database; False disables memory entirely.

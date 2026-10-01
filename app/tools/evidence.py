@@ -31,6 +31,7 @@ from app.tools.dataset import (
     load_machines,
     load_production,
     load_technician_notes,
+    normalize_machine_id,
 )
 
 #: Length of the reference period immediately preceding an anomaly window.
@@ -44,6 +45,7 @@ def gather_evidence(machine_id: str, anomaly: dict) -> dict:
     comparisons, and the qualitative records (maintenance, notes, incidents)
     that fall inside or near the window.
     """
+    machine_id = normalize_machine_id(machine_id)
     start_date = anomaly["start_date"]
     end_date = anomaly["end_date"]
 
@@ -88,6 +90,7 @@ def _baseline_window(start_date) -> tuple:
 
 def machine_info(machine_id: str) -> dict:
     """Metadata for one machine, or a minimal placeholder if it is unknown."""
+    machine_id = normalize_machine_id(machine_id)
     machines = load_machines()
     row = machines[machines["machine_id"] == machine_id]
     if row.empty:
