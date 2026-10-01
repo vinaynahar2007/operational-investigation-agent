@@ -17,7 +17,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+
+from dotenv import load_dotenv
+
+# Local development keeps credentials in .env (gitignored). The test session
+# sets OI_TEST_SESSION so a developer's real keys never leak into the suite.
+if not os.environ.get("OI_TEST_SESSION"):
+    load_dotenv()
 
 from app.agents.investigator import investigate
 from app.tools.anomalies import detect_anomalies, findings_by_machine

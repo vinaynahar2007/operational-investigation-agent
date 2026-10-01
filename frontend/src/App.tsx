@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { fetchHealth, fetchMachines, runInvestigation } from './api.js'
-import { AnomalyCard, EvidenceCard, ProgressPanel } from './components/panels.jsx'
+import { fetchHealth, fetchMachines, runInvestigation } from './api'
+import { Overview } from './components/overview'
+import { AnomalyCard, EvidenceCard, ProgressPanel } from './components/panels'
 import {
   HypothesesCard,
   InterventionCard,
@@ -8,17 +9,21 @@ import {
   MemoryCard,
   RootCauseCard,
   VerificationCard,
-} from './components/panels2.jsx'
-import { Badge } from './components/ui.jsx'
+} from './components/panels2'
+import { Badge } from './components/ui'
+import type { HealthResponse, InvestigationResult, Machine } from './types'
+
+type View = 'overview' | 'investigation'
 
 export default function App() {
-  const [machines, setMachines] = useState([])
-  // M04 by default: it demonstrates the strongest complete investigation.
+  const [machines, setMachines] = useState<Machine[]>([])
   const [machineId, setMachineId] = useState('M04')
-  const [result, setResult] = useState(null)
+  const [result, setResult] = useState<InvestigationResult | null>(null)
+  const [results, setResults] = useState<Record<string, InvestigationResult>>({})
+  const [view, setView] = useState<View>('overview')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [health, setHealth] = useState(null)
+  const [error, setError] = useState<string | null>(null)
+  const [health, setHealth] = useState<HealthResponse | null>(null)
 
   useEffect(() => {
     fetchMachines()
@@ -29,14 +34,17 @@ export default function App() {
       .catch(() => setHealth(null))
   }, [])
 
-  async function onInvestigate() {
+  async function onInvestigate(targetMachineId: string = machineId): Promise<void> {
     setLoading(true)
     setError(null)
+    setMachineId(targetMachineId)
     try {
-      const data = await runInvestigation(machineId)
+      const data = await runInvestigation(targetMachineId)
       setResult(data)
+      setResults((current) => ({ ...current, [data.machine_id]: data }))
+      setView('investigation')
     } catch (err) {
-      setError(err.message || 'Investigation failed.')
+      setError(err instanceof Error ? err.message : 'Investigation failed.')
       setResult(null)
     } finally {
       setLoading(false)
@@ -46,9 +54,12 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div>
-          <h1>Operational Investigation Agent</h1>
-          <p className="tagline">AI-assisted operational root-cause investigation</p>
+        <div className="brand-lockup">
+          <span className="brand-mark">OI</span>
+          <div>
+            <h1>Operational Intelligence</h1>
+            <p className="tagline">Evidence-led energy operations</p>
+          </div>
         </div>
         <div className="health">
           {health ? (
@@ -66,7 +77,16 @@ export default function App() {
         </div>
       </header>
 
-      <section className="controls">
+      <nav className="app-nav" aria-label="Primary navigation">
+        <button className={view === 'overview' ? 'nav-active' : ''} onClick={() => setView('overview')}>
+          Overview
+        </button>
+        <button className={view === 'investigation' ? 'nav-active' : ''} onClick={() => setView('investigation')}>
+          Investigation workspace
+        </button>
+      </nav>
+
+      {view === 'investigation' ? <section className="controls">
         <label htmlFor="machine">Machine</label>
         <select
           id="machine"
@@ -85,7 +105,7 @@ export default function App() {
               ))
           )}
         </select>
-        <button className="primary" onClick={onInvestigate} disabled={loading}>
+        <button className="primary" onClick={() => onInvestigate()} disabled={loading}>
           {loading ? 'Investigating…' : 'Investigate'}
         </button>
         {result ? (
@@ -93,7 +113,7 @@ export default function App() {
             Clear
           </button>
         ) : null}
-      </section>
+      </section> : null}
 
       {error ? (
         <div className="error-box">
@@ -102,7 +122,20 @@ export default function App() {
         </div>
       ) : null}
 
-      {!result && !error && !loading ? (
+      {view === 'overview' && !error ? (
+        <Overview
+          machines={machines}
+          results={results}
+          onSelectMachine={onInvestigate}
+          onOpenInvestigation={(id) => {
+            setMachineId(id)
+            setResult(results[id])
+            setView('investigation')
+          }}
+        />
+      ) : null}
+
+      {view === 'investigation' && !result && !error && !loading ? (
         <div className="empty-state">
           <p>
             Select a machine and run an investigation. All numbers, verdicts and
@@ -112,7 +145,7 @@ export default function App() {
         </div>
       ) : null}
 
-      {result ? (
+      {view === 'investigation' && result ? (
         <main className="grid">
           <div className="col col-wide">
             <ProgressPanel trace={result.trace} />

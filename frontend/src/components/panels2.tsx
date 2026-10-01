@@ -1,6 +1,7 @@
-import { Badge, Card, Num, Pct, Row, StatusBadge } from './ui.jsx'
+import type { InvestigationResult, MemoryMatch } from '../types'
+import { Badge, Card, Num, Pct, Row, StatusBadge } from './ui'
 
-export function HypothesesCard({ result }) {
+export function HypothesesCard({ result }: { result: InvestigationResult }) {
   const hypotheses = result.hypotheses || []
   return (
     <Card title="Hypotheses" subtitle="Each candidate and the verdict the evaluator reached." tag={{ text: 'inferred', tone: 'info' }}>
@@ -32,7 +33,7 @@ export function HypothesesCard({ result }) {
   )
 }
 
-export function RootCauseCard({ result }) {
+export function RootCauseCard({ result }: { result: InvestigationResult }) {
   const rc = result.root_cause
   if (!rc) {
     return (
@@ -59,8 +60,8 @@ export function RootCauseCard({ result }) {
   )
 }
 
-export function MemoryCard({ result }) {
-  const matches = result.memory_matches || []
+export function MemoryCard({ result }: { result: InvestigationResult }) {
+  const matches: MemoryMatch[] = result.memory_matches || []
   return (
     <Card
       title="Operational Memory"
@@ -109,7 +110,7 @@ export function MemoryCard({ result }) {
   )
 }
 
-export function InterventionCard({ result }) {
+export function InterventionCard({ result }: { result: InvestigationResult }) {
   const iv = result.intervention
   if (!iv) {
     return <Card title="Intervention"><p className="muted">No intervention was simulated.</p></Card>
@@ -132,7 +133,7 @@ export function InterventionCard({ result }) {
   )
 }
 
-export function VerificationCard({ result }) {
+export function VerificationCard({ result }: { result: InvestigationResult }) {
   const v = result.verification
   if (!v) {
     return <Card title="Verification"><p className="muted">Nothing was verified.</p></Card>
@@ -160,10 +161,10 @@ export function VerificationCard({ result }) {
   )
 }
 
-export function LlmCard({ result }) {
+export function LlmCard({ result }: { result: InvestigationResult }) {
   const llm = result.llm_reasoning
   if (!llm) return null
-  const traceEntry = (result.trace || []).find((t) => t.step === 'LLM_REASONING')
+  const traceEntry = result.trace.find((t) => t.step === 'LLM_REASONING')
   const status = traceEntry ? traceEntry.status : 'skipped'
   return (
     <Card
@@ -204,7 +205,7 @@ export function LlmCard({ result }) {
   )
 }
 
-function humanise(name) {
+function humanise(name: string): string {
   return String(name || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())

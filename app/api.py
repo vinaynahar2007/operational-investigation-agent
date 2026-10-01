@@ -17,13 +17,22 @@ Run with:  python -m app.api   (or: uvicorn app.api:app --port 8000)
 
 from __future__ import annotations
 
+import os
+
+from dotenv import load_dotenv
+
+# Local development keeps credentials in .env (gitignored). The test session
+# sets OI_TEST_SESSION so a developer's real keys never leak into the suite.
+if not os.environ.get("OI_TEST_SESSION"):
+    load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.agents.investigator import investigate
-from app.llm.adapter import LLMAdapter
+from app.llm.adapter import get_adapter
 from app.tools.dataset import load_machines, normalize_machine_id
 
 app = FastAPI(
@@ -54,7 +63,7 @@ class InvestigateRequest(BaseModel):
 @app.get("/api/health")
 def health() -> dict:
     """Liveness probe reporting whether optional LLM reasoning is configured."""
-    adapter = LLMAdapter()
+    adapter = get_adapter()
     return {
         "status": "ok",
         "llm_configured": adapter.is_available(),

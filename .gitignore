@@ -34,3 +34,9 @@ Thumbs.db
 *.log
 .idea/
 .vscode/
+
+# Agent skills installed with the skills CLI (reinstall via: npx skills add)
+.agents/
+skills-lock.json
+.claude/
+data/skills/

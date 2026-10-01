@@ -15,9 +15,13 @@ is recorded rather than believed.
 
 Provider configuration comes entirely from the environment:
 
-    LLM_API_KEY    credential (never logged, never echoed)
-    LLM_MODEL      model identifier
-    LLM_BASE_URL   API base URL, so any OpenAI-compatible endpoint works
+    LLM_PROVIDER           openai | groq (default: the first provider with a key)
+    OPENAI_API_KEY         credential for OpenAI (never logged, never echoed)
+    GROQ_API_KEY           credential for Groq (never logged, never echoed)
+    LLM_API_KEY            generic credential for any OpenAI-compatible endpoint
+    LLM_MODEL              model identifier (overrides the provider default)
+    LLM_BASE_URL           API base URL (overrides the provider default)
+    LLM_FALLBACK_PROVIDER  second provider, tried only when the first fails
 
 When no credential is configured the adapter reports itself unavailable and the
 investigator simply continues with deterministic reasoning.
@@ -44,6 +48,39 @@ VALID_STATUSES = ("supported", "rejected", "inconclusive")
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_TIMEOUT = 30.0
+
+#: OpenAI-compatible providers with a known base URL, default model and the
+#: environment variable that carries their credential. Any other
+#: OpenAI-compatible endpoint remains usable through LLM_BASE_URL.
+PROVIDERS = {
+    "openai": {
+        "base_url": DEFAULT_BASE_URL,
+        "model": DEFAULT_MODEL,
+        "key_env": "OPENAI_API_KEY",
+    },
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-120b",
+        "key_env": "GROQ_API_KEY",
+    },
+}
+
+
+def _configured_provider() -> str | None:
+    """Provider chosen by LLM_PROVIDER, or the first provider with a key."""
+    requested = os.environ.get("LLM_PROVIDER", "").strip().lower()
+    if requested in PROVIDERS:
+        return requested
+    for name, preset in PROVIDERS.items():
+        if os.environ.get(preset["key_env"], "").strip():
+            return name
+    return None
+
+
+def _fallback_provider() -> str | None:
+    """Provider chosen by LLM_FALLBACK_PROVIDER, if it is a known one."""
+    requested = os.environ.get("LLM_FALLBACK_PROVIDER", "").strip().lower()
+    return requested if requested in PROVIDERS else None
 
 SYSTEM_PROMPT = """You are an operational investigation reasoner for an \
 industrial energy dataset.
@@ -88,12 +125,32 @@ class LLMAdapter:
         base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         transport=None,
+        provider: str | None = None,
     ):
-        # Read from the environment, never from source.
-        self._api_key = api_key if api_key is not None else os.environ.get("LLM_API_KEY", "")
-        self._model = model or os.environ.get("LLM_MODEL", "") or DEFAULT_MODEL
+        # Read provider selection from the environment, never from source.
+        selected = (provider or "").strip().lower() or _configured_provider()
+        preset = PROVIDERS.get(selected, {}) if selected else {}
+        key_env = preset.get("key_env", "")
+
+        self._api_key = (
+            api_key
+            if api_key is not None
+            else (
+                os.environ.get("LLM_API_KEY", "")
+                or (os.environ.get(key_env, "") if key_env else "")
+            )
+        )
+        self._model = (
+            model
+            or os.environ.get("LLM_MODEL", "")
+            or preset.get("model", "")
+            or DEFAULT_MODEL
+        )
         self._base_url = (
-            base_url or os.environ.get("LLM_BASE_URL", "") or DEFAULT_BASE_URL
+            base_url
+            or os.environ.get("LLM_BASE_URL", "")
+            or preset.get("base_url", "")
+            or DEFAULT_BASE_URL
         ).rstrip("/")
         self._timeout = timeout
         # Injectable so tests can exercise the full path without a live API.
@@ -163,7 +220,11 @@ class LLMAdapter:
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
+                "Accept": "application/json",
                 "Authorization": "Bearer {0}".format(self._api_key),
+                # A descriptive UA: some providers/WAFs reject the default
+                # Python-urllib user agent outright with a 403.
+                "User-Agent": "operational-investigation-agent/1.0",
             },
             method="POST",
         )
@@ -378,6 +439,88 @@ def unavailable_reasoning(reason: str) -> dict:
     }
 
 
-def get_adapter() -> LLMAdapter:
-    """Build the configured adapter, if any."""
-    return LLMAdapter()
+class FallbackAdapter:
+    """Try a chain of adapters in order; the first success wins.
+
+    Used to keep the advisory reasoning layer alive when the primary provider
+    is rate-limited or unreachable (for example OpenAI with Groq as fallback).
+    Every adapter shares the same ``reason`` contract, so the investigator
+    needs no changes: if all of them fail, the combined error is raised and the
+    deterministic results stand unchanged.
+    """
+
+    def __init__(self, adapters: list):
+        self._adapters = list(adapters)
+
+    def _active(self) -> list:
+        return [adapter for adapter in self._adapters if adapter.is_available()]
+
+    def is_available(self) -> bool:
+        """True when at least one adapter in the chain is configured."""
+        return bool(self._active())
+
+    def describe(self) -> dict:
+        """Safe metadata for reporting. Never includes any API key."""
+        active = self._active() or self._adapters
+        if not active:
+            return {"provider": "unknown", "model": "unknown", "configured": False}
+        description = dict(active[0].describe())
+        description["fallback"] = [
+            other.describe()["provider"] for other in active[1:]
+        ]
+        return description
+
+    def provider_name(self) -> str:
+        """Label of the first configured adapter in the chain."""
+        active = self._active()
+        return active[0].provider_name() if active else "unknown"
+
+    def reason(self, evidence: dict) -> dict:
+        """First successful reasoning result; raises if every adapter fails."""
+        errors = []
+        for adapter in self._active():
+            try:
+                return adapter.reason(evidence)
+            except LLMError as error:
+                errors.append("{0}: {1}".format(adapter.provider_name(), error))
+        if errors:
+            raise LLMError(
+                "All reasoning providers failed ({0}).".format("; ".join(errors))
+            )
+        raise LLMError("No reasoning provider configured.")
+
+
+def get_adapter():
+    """Build the configured reasoning adapter, if any.
+
+    A configured TypeSafe credential takes precedence, because its typed
+    judgments were designed for this reasoning contract. Otherwise the
+    OpenAI-compatible provider selected by LLM_PROVIDER (OpenAI or Groq) is
+    used, plus the optional LLM_FALLBACK_PROVIDER which is only tried when the
+    first one fails. With no credential at all a single unconfigured adapter is
+    returned so callers can report availability and skip reasoning.
+    """
+    from app.llm.typesafe import TypeSafeAdapter
+
+    typesafe = TypeSafeAdapter()
+    if typesafe.is_available():
+        return typesafe
+
+    adapters = [LLMAdapter()]
+    fallback_name = _fallback_provider()
+    if fallback_name:
+        adapters.append(LLMAdapter(provider=fallback_name))
+
+    # The same provider twice (for example a fallback that resolves to the
+    # primary endpoint) adds nothing, so collapse duplicates.
+    unique = []
+    seen = set()
+    for adapter in adapters:
+        label = adapter.describe()["provider"]
+        if label not in seen:
+            seen.add(label)
+            unique.append(adapter)
+
+    if len(unique) == 1:
+        return unique[0]
+    return FallbackAdapter(unique)
