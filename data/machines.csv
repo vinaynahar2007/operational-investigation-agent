@@ -1,0 +1,6 @@
+machine_id,machine_name,category,rated_kw,baseline_runtime_h
+M01,CNC Cutter,cutting,18,7.0
+M02,Hydraulic Press,forming,22,6.5
+M03,Air Compressor,compressed_air,30,7.5
+M04,Industrial Oven,heating,45,8.0
+M05,Cooling System,cooling,25,8.0

@@ -1,0 +1,5 @@
+date,machine_id,note,recommended_followup
+2026-07-18,M03,Technician observed abnormal compressor cycling and air-line leakage.,Air leakage repaired; monitor runtime for recurrence.
+2026-08-15,M04,Filter inspection due. No immediate failure observed.,Schedule preventive maintenance.
+2026-09-01,M04,Oven drawing more power than usual; filter cleaning appears overdue.,Inspect and clean filter before replacing components.
+2026-09-25,M03,Compressor runtime increased again during extended production shifts.,Compare runtime increase against production increase.

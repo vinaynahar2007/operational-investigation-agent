@@ -1,0 +1,3 @@
+incident_id,date,machine_id,symptom,description,intervention,verified_energy_reduction,verified
+INC-001,2026-07-18,M03,high_energy_consumption,M03 energy increased while production remained stable,Air leakage repaired; runtime normalized,0.11,True
+INC-002,2026-09-01,M04,high_energy_consumption,M04 energy increased with rising efficiency factor and overdue maintenance,Filter cleaning and preventive maintenance,0.14,True

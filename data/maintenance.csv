@@ -1,0 +1,5 @@
+date,machine_id,maintenance_type,status,notes
+2026-08-15,M04,inspection,scheduled,Filter inspection due
+2026-09-01,M04,preventive_maintenance,overdue,Filter cleaning missed
+2026-09-25,M03,inspection,completed,Air-line inspection
+2026-07-18,M03,corrective_maintenance,completed,Air leakage repaired

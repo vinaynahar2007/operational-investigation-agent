@@ -1,0 +1,40 @@
+{
+  "scenarios": [
+    {
+      "id": "S1",
+      "name": "Energy anomaly",
+      "question": "Why did factory energy consumption increase near the end of the period?",
+      "expected_signal": "M03 energy and runtime rise disproportionately relative to production.",
+      "evidence": [
+        "energy.csv",
+        "production.csv",
+        "machines.csv"
+      ],
+      "expected_action": "Inspect compressor operating schedule and air system; compare runtime to production."
+    },
+    {
+      "id": "S2",
+      "name": "Machine inefficiency",
+      "question": "Why is M04 consuming more energy?",
+      "expected_signal": "M04 efficiency factor rises after overdue maintenance.",
+      "evidence": [
+        "energy.csv",
+        "maintenance.csv",
+        "technician_notes.csv"
+      ],
+      "expected_action": "Perform overdue filter inspection/cleaning and verify energy consumption afterward."
+    },
+    {
+      "id": "S3",
+      "name": "Historical knowledge",
+      "question": "Has the current M03 pattern happened before, and what worked?",
+      "expected_signal": "Historical M03 incident contains a similar high-energy symptom and verified intervention.",
+      "evidence": [
+        "incidents.csv",
+        "technician_notes.csv",
+        "energy.csv"
+      ],
+      "expected_action": "Retrieve prior verified M03 resolution and use it as evidence, not as an automatic conclusion."
+    }
+  ]
+}
